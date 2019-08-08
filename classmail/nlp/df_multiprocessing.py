@@ -39,7 +39,7 @@ def apply_parallel(df, func, **kwargs):
     pd.DataFrame
         Returns the DataFrame with the function applied.
     """
-    num_workers = cpu_count()  # - 1
+    num_workers = cpu_count()
 
     if (df.shape[0] == 1) or (num_workers == 1):
         return apply_df((df, func, kwargs))

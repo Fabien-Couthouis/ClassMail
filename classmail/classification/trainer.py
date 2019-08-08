@@ -7,7 +7,7 @@ from torch.optim.adam import Adam
 from flair.visual.training_curves import Plotter
 from flair.trainers import ModelTrainer
 from flair.models import TextClassifier
-from flair.data import Corpus, Sentence
+from flair.data import Corpus
 from flair.datasets import CSVClassificationCorpus
 from flair.embeddings import WordEmbeddings, FlairEmbeddings, DocumentRNNEmbeddings, DocumentPoolEmbeddings, StackedEmbeddings, FastTextEmbeddings
 
@@ -152,26 +152,3 @@ class Trainer():
                       patience=patience,
                       max_epochs=max_epochs,
                       **kwargs)
-
-
-class Model():
-    def __init__(self, path):
-        self.loaded_classifier = TextClassifier.load(
-            "{}\\final-model.pt".format(path))
-
-    def _pred_one_exemple(self, row):
-        sentence = Sentence(row)
-        self.loaded_classifier.predict(sentence)
-        return(sentence.labels[0])
-
-    def predict(self, series, get_confidence=False):
-        predicted_labels = series.apply(self._pred_one_exemple)
-        labels = predicted_labels.apply(
-            lambda x: ' '.join(str(x).split()[:-1]))
-        confidence = predicted_labels.apply(
-            lambda x: str(x).split()[-1][1:-1])
-
-        if get_confidence:
-            return labels, confidence
-        else:
-            return labels
