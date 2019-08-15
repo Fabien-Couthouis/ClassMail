@@ -1,7 +1,9 @@
+# nlp/configjson.py
 import json
-import os.path as op
 import logging
+import os.path as op
 from configparser import ConfigParser
+
 import pandas as pd
 import unidecode
 

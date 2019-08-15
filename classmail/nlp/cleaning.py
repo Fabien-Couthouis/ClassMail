@@ -1,11 +1,12 @@
+# nlp/cleaning.py
 import re
+
 from unidecode import unidecode
-from classmail.nlp.get_only_messages import get_only_messages
 from classmail.nlp.configjson import ConfigJsonReader
 from classmail.nlp.df_multiprocessing import apply_parallel
+from classmail.nlp.get_only_messages import get_only_messages
 
 conf_reader = ConfigJsonReader()
-# conf_reader.set_config_path("G:\classMail\nlp\conf.json")
 config = conf_reader.get_config_file()
 
 REGEX_CLEAN = config["regex"]["cleaning"]
@@ -32,7 +33,7 @@ regex_clean_body = re.compile(r'(?:{})'.format(
     '|'.join(clean_body_list).lower()), flags=re.M)
 
 
-def clean_mail(df, col_body, col_header, multithreading=True):
+def clean_mail(df, col_body, col_header):
     df['cleaned_body'] = apply_parallel(df, clean_body, args=[col_body])
     df['cleaned_header'] = apply_parallel(df, clean_header, args=[col_header])
     df["clean_text"] = df['cleaned_header'] + " " + df['cleaned_body']
@@ -40,17 +41,18 @@ def clean_mail(df, col_body, col_header, multithreading=True):
 
 
 def clean_body(row, col="body", **kwargs):
-    """Clean body column. The cleaning involves the following operations:
+    """
+    Clean body column. The cleaning involves the following operations:
         - Cleaning the text
         - Removing the multiple spaces
         - Flagging specific items (postal code, phone number, date...)
 
     Parameters
     ----------
-    row : row of pandas.Dataframe object,
+    row: row of pandas.Dataframe object,
         Data contains 'last_body' column.
 
-    flags : boolean, optional
+    flags: boolean, optional
         True if you want to flag relevant info, False if not.
         Default value, True.
         flags : boolean, optional
@@ -72,9 +74,9 @@ def clean_body(row, col="body", **kwargs):
         True if you want to clean duplicates (same expression repeated), False if not.
         Default value, True.
 
-    Returns
+    Return
     -------
-    row of pandas.DataFrame object or pandas.Series if apply to all DF.
+    pandas.Series
     """
 
     cleaned_body = str(row[col])
@@ -87,21 +89,18 @@ def clean_body(row, col="body", **kwargs):
 
 
 def clean_header(row, col="header", **kwargs):
-    """Clean the header column. The cleaning involves the following operations:
+    """
+    Clean the header column. The cleaning involves the following operations:
         - Removing the transfers and answers indicators
         - Cleaning the text
         - Flagging specific items (postal code, phone number, date...)
 
     Parameters
     ----------
-    row : row of pandas.Dataframe object,
+    row: row of pandas.Dataframe object,
         Data contains 'header' column.
 
-    flags : boolean, optional
-        True if you want to flag relevant info, False if not.
-        Default value, True.
-
-    flags : boolean, optional
+    flags: boolean, optional
         True if you want to flag relevant info, False if not.
         Default value, True.
     accents: boolean, optional
@@ -123,7 +122,7 @@ def clean_header(row, col="header", **kwargs):
         True if you want to clean duplicates (same expression repeated), False if not.
         Default value, True.
 
-    Returns
+    Return
     -------
     row of pd.DataFrame object or pandas.Series if apply to all DF.
     """
@@ -139,7 +138,8 @@ def clean_header(row, col="header", **kwargs):
 
 
 def clean_text(text, **kwargs):
-    """Clean a string. The cleaning involves the following operations:
+    """
+    Clean a string. The cleaning involves the following operations:
         - Flag relevant items
         - Remove all the accents
         - Remove stopwords
@@ -149,9 +149,9 @@ def clean_text(text, **kwargs):
 
     Parameters
     ----------
-    text : str
+    text: str
 
-    Returns
+    Return
     -------
     str
     """
@@ -189,97 +189,45 @@ def clean_accents(text, activated=True):
 
 
 def clean_line_break(text, activated=True):
-    """Remove line breaks and tabs from text
-
-    Parameters
-    ----------
-    text : str,
-        Header content.
-
-    Returns
-    -------
-    str
-    """
+    """Remove line breaks and tabs from text"""
     if activated:
         text = text.replace('\n', ' ').replace('\r', ' ').replace('\t', ' ')
     return text
 
 
 def clean_ponctuation(text, activated=True):
-    """Remove non alphanumeric characters from text (except spaces)
-
-    Parameters
-    ----------
-    text : str,
-        Header content.
-
-    Returns
-    -------
-    str
-    """
+    """Remove non alphanumeric characters from text (except spaces)"""
     if activated:
         text = ''.join(c if c.isalnum() else " " for c in text)
     return text
 
 
 def clean_duplicates(text, activated=True):
-    """Remove duplicated words/flags, ...
-
-    Parameters
-    ----------
-    text : str,
-        Header content.
-
-    Returns
-    -------
-    str
-    """
+    """Remove duplicated words/flags, ..."""
     if activated:
         return re.sub(regex_clean_duplicates, r"\1", text)
     return text
 
 
 def clean_multiple_spaces_and_strip_text(text):
-    """Remove multiple spaces, strip text, and clean '-', '*' characters.
-
-    Parameters
-    ----------
-    text : str,
-        Header content.
-
-    Returns
-    -------
-    str
-    """
+    """Remove multiple spaces, strip text, and clean '-', '*' characters."""
     text = re.sub(regex_clean_multiple_spaces, ' ', text)
     text = text.strip()
     return text
 
 
 def clean_stopwords(text, activated=True):
+    """Remove all stopwords from text (see config file)"""
     for stopword in stopwords_list:
         text = text.replace(" {0} ".format(stopword), ' ')
     return text
 
 
 def flag_items(text, activated=True):
-    """Flag relevant information
+    """
+    Flag relevant information
         ex : amount, phone number, email address, postal code (5 digits)..
         (Note : Attached files are already flagged in get_only_messages)
-
-    Parameters
-    ----------
-    text : str,
-        Body content.
-
-    flags : boolean, optional
-        True if you want to flag relevant info, False if not.
-        Default value, True.
-
-    Returns
-    -------
-    str
-
     """
 
     if activated:
@@ -290,6 +238,7 @@ def flag_items(text, activated=True):
 
 
 def clean_digits(text, activated=True):
+    """Remove all numbers from text"""
     text = ''.join([char for char in text if not char.isdigit()])
     return text
 

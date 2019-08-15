@@ -1,15 +1,16 @@
+# classification/model.py
 import random
+from collections import defaultdict
+
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 import seaborn as sns
-from collections import defaultdict
-from flair.models import TextClassifier
 from flair.data import Sentence
-from flair.visual.training_curves import Plotter
+from flair.models import TextClassifier
 from lime.lime_text import LimeTextExplainer
-from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
-from sklearn.metrics import confusion_matrix
+from sklearn.metrics import (accuracy_score, confusion_matrix, f1_score,
+                             precision_score, recall_score)
 
 
 class Model():
@@ -47,8 +48,19 @@ class Model():
         return np.asarray(predictions_prob).astype(np.float64)
 
     def predict(self, text_inputs):
+        """
+        Use flair model to make classification (get all flair predictions with probabilities)
+
+        Parameters
+        ----------
+        text_inputs : pandas series or list<str> or str
+            String(s) to classify
+        Returns
+        -------
+        list<list<str>> (List of flair predictions : [["label (probablity)"]])
+        """
         if len(text_inputs) == 0:
-            raise ValueError("Empty")
+            raise ValueError("Empty string")
 
         elif type(text_inputs) == str:
             text_inputs = [text_inputs]
@@ -62,13 +74,35 @@ class Model():
         return predictions
 
     def get_predictions(self, text_input):
-        pred_dicts = self.get_prediction_dicts(text_input)
-        predicted_classes = [max(probs, key=probs.get)
-                             for probs in pred_dicts]
+        """
+        Use flair model to make classification (get only the class with highest probability)
 
-        return predicted_classes
+        Parameters
+        ----------
+        text_inputs : pandas series or list<str> or str
+            String(s) to classify
+        Returns
+        -------
+        str (class with highest probability)
+        """
+        pred_dicts = self.get_prediction_dicts(text_input)
+        predicted_class = [max(probs, key=probs.get)
+                           for probs in pred_dicts]
+
+        return predicted_class
 
     def get_prediction_dicts(self, text_inputs):
+        """
+        Use model to make classification (get a dict containing all predictions with probabilities)
+
+        Parameters
+        ----------
+        text_inputs : pandas series or list<str> or str
+            String(s) to classify
+        Returns
+        -------
+        list<dict> ([{prediction:probability}])
+        """
         predictions = self.predict(text_inputs)
         pred_probs = self._get_probs(predictions)
         labels_names = self._get_labels_names(predictions)
@@ -77,19 +111,20 @@ class Model():
                       for pred in pred_probs]
         return pred_dicts
 
-    def plot_training_curves(self):
-        plotter = Plotter()
-        plotter.plot_training_curves("{}/loss.tsv".format(self.path))
-        plotter.plot_weights("{}/weights.txt".format(self.path))
-
-    def evaluate(self, pred_labels, true_labels, average="weighted"):
-        print("Accuracy:", accuracy_score(pred_labels, true_labels))
-        print("F1-score:", f1_score(pred_labels, true_labels, average=average))
+    def evaluate(self, predicted_labels, true_labels, average="weighted"):
+        """
+        Evaluate model with classif metrics : accuracy,precision,recall,F1-score.
+        Average parameter comes from https://scikit-learn.org/stable/modules/generated/sklearn.metrics.f1_score.html
+        """
+        print("Accuracy:", accuracy_score(predicted_labels, true_labels))
+        print("F1-score:", f1_score(predicted_labels, true_labels, average=average))
         print("Precision:", precision_score(
-            pred_labels, true_labels, average=average))
-        print("Recall:", recall_score(pred_labels, true_labels, average=average))
+            predicted_labels, true_labels, average=average))
+        print("Recall:", recall_score(
+            predicted_labels, true_labels, average=average))
 
-    def generate_preds_true_df(self, text, pred_labels, true_labels, export_to=None, ):
+    def generate_preds_true_df(self, text, pred_labels, true_labels, export_to=None):
+        """Generate a dataframe to explore predictions"""
         df = pd.DataFrame(
             {"Text": text, "Prediction": pred_labels, "True label": true_labels})
 
@@ -101,12 +136,29 @@ class Model():
 
         return df
 
-    def plot_important_words(self, sorted_contributions, category, nb_words, title="default"):
-        if title == "default":
-            title = "Most important words for {}".format(category)
+    def plot_discriminant_words(self, sorted_contributions, label, nb_words=15, title="default"):
+        """
+       Model explanation. Plot discriminant for the given label.
 
-        supporters = sorted_contributions[category]['supporters'][:nb_words]
-        detractors = sorted_contributions[category]['detractors'][:nb_words]
+        Parameters
+        ----------
+        sorted_contributions : dict 
+            Result from model.get_statistical_explanation
+        label : str 
+            Result from model.get_statistical_explanation
+        nb_words : int, optionnal (default value=15)
+            Number of words to plot
+        title : str, optionnal (default value="Most important words for label")
+            Title of the plot
+        Returns
+        -------
+        None
+        """
+        if title == "default":
+            title = "Most important words for {}".format(label)
+
+        supporters = sorted_contributions[label]['supporters'][:nb_words]
+        detractors = sorted_contributions[label]['detractors'][:nb_words]
 
         top_words = supporters.index.tolist()
         top_scores = supporters.tolist()
@@ -146,6 +198,23 @@ class Model():
         plt.show()
 
     def get_statistical_explanation(self, X_test, class_names, sample_size=100):
+        """
+        Model interpretation using LIME librarie (https://github.com/marcotcr/lime).
+        See the terms used by the model to make classification.
+
+        Parameters
+         ----------
+        X_test : pandas DataFrame 
+            Text inputs
+        class_names : list<str >
+            Name list of your classes
+        sample_size : str, optionnal (default value=100)
+            Number of inputs to take for the explanation
+         Returns
+         -------
+         Dict of dicts ({category: {detractors:[term1,term2,...], supporters:[term1,term2,...]}} where
+         supporters (detractors) are terms that are relevant (irrelevant) for the category.)
+         """
         random.seed(42)
         class_names.sort()
         mapping = dict(zip(range(len(class_names)), class_names))
@@ -197,7 +266,8 @@ class Model():
             instance, self._get_prediction_probabilities, num_features=num_features, top_labels=1)
         return exp
 
-    def visualize_one_exp(self, X_test, y_test, index, num_features=10):
+    def visualize_one_ex(self, X_test, y_test, index, num_features=10):
+        """Model explanation. See the terms used by the model to make classification for one exemple"""
         print('Index: %d' % index)
         print('True class: %s' % y_test[index])
 
@@ -210,6 +280,7 @@ class Model():
 
     def plot_confusion_matrix(self, pred_labels, true_labels, pred_labels_axename="Predicted label",
                               true_labels_axename="True label", inverse_axis=False, title="", cmap="YlGnBu"):
+        """Plot confusion matrix using seaborn and sklearn"""
         label_names = np.unique(true_labels)
 
         conf_mat = confusion_matrix(

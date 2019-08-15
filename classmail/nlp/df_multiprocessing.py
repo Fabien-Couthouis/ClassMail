@@ -1,8 +1,10 @@
+# nlp/df_multiprocessing.py
 from multiprocessing import cpu_count
+
 import numpy as np
 import pandas as pd
-from tqdm import tqdm
 from joblib import Parallel, delayed
+from tqdm import tqdm
 
 
 def apply_df(input_args):
@@ -34,10 +36,10 @@ def apply_parallel(df, func, **kwargs):
 
     func : function to apply
 
-    Returns
+    Return
     -------
     pd.DataFrame
-        Returns the DataFrame with the function applied.
+        Return the DataFrame with the function applied.
     """
     num_workers = cpu_count()
 
