@@ -1,12 +1,16 @@
 from setuptools import setup, find_packages
-
+import site
+import requests
+import zipfile
+import io
+import tempfile
 with open("requirements.txt") as f:
     required = f.read().splitlines()
 
 setup(
     name="classmail",
     version="0.1",
-    description="A simple framework for automatic mail classification task",
+    description="A simple framework for automatise mail classification task",
     long_description=open("README.md", encoding="utf-8").read(),
     long_description_content_type="text/markdown",
     author="Fabien Couthouis",
@@ -15,6 +19,6 @@ setup(
     packages=find_packages(exclude="tests"),
     license="MIT",
     install_requires=required,
-    include_package_data=True,
+    data_files=[('config', ['classmail/nlp/conf.json'])],
     python_requires=">=3.6",
 )
