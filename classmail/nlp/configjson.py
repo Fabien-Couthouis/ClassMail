@@ -1,4 +1,5 @@
 # nlp/configjson.py
+# Inspired from Melusine librarie : https://github.com/MAIF/melusine/tree/master/melusine
 import json
 import logging
 import os.path as op
@@ -74,7 +75,7 @@ class ConfigJsonReader():
         ----------
         file_path: str, optional
             Path to the json file. If set to None (default), it will use the default
-            json located in the built-in package `melusine/config/conf.json`.
+            json located in the built-in package `classmail/nlp/conf.json`.
         """
         if file_path is not None:
             # if file_path is specified, it writes new path in the .ini file.
@@ -130,7 +131,7 @@ class ConfigJsonReader():
         ----------
         file_path: str, optional
             Path to the csv file. If set to None (default), it will use the default
-            csv located in the built-in package `melusine/config/names.csv`.
+            csv located in the built-in package `classmail/config/names.csv`.
         """
         if file_path is not None:
             # if file_path is specified, it writes new path in the .ini file.
