@@ -101,7 +101,7 @@ def get_term_frequencies(series, min_str_len=1, ngram=1):
     return dict(word_dict)
 
 
-def _get_relevance_scores(df, col_text, col_label, label):
+def _get_relevance_scores(df, col_text, col_label, label, get_frequencies):
     """
     Get a relevance score for all terms in the specified label. 
     Adapted from this article : https://arxiv.org/ftp/arxiv/papers/1608/1608.07094.pdf
@@ -111,16 +111,18 @@ def _get_relevance_scores(df, col_text, col_label, label):
     # Texts corresponding to the specified label
     this_cat_series = text_series[label_series == label]
 
-    word_freq_dict_this_cat = get_term_frequencies(this_cat_series)
-    word_freq_dict_all_cats = get_term_frequencies(text_series)
+    word_freq_class = get_term_frequencies(this_cat_series)
+    word_freq_corpus = get_term_frequencies(text_series)
 
     # Compute class_weight
     this_cat_size = len(this_cat_series)
     cat_sizes = len(text_series)
     class_weight = this_cat_size / cat_sizes
 
-    scores = {}
-    for word in word_freq_dict_this_cat:
+    scores = []
+
+    for index, word in enumerate(word_freq_class):
+        scores.append([])
         # Compute class_term_weight
         class_frequency = this_cat_series.str.contains(
             word, regex=False, na=False).sum()
@@ -131,38 +133,78 @@ def _get_relevance_scores(df, col_text, col_label, label):
             class_frequency, corpus_frequency)
 
         # Compute class_term_density
-        this_cat_freq_normalised = word_freq_dict_this_cat[word]
-        all_cat_freq_normalised = word_freq_dict_all_cats[word]
+        class_term_frequency = word_freq_class[word]
+        corpus_term_frequency = word_freq_corpus[word]
         class_term_density = _get_log_normalised_ratio(
-            this_cat_freq_normalised, all_cat_freq_normalised)
+            class_term_frequency, corpus_term_frequency)
 
         # Compute score
         score = class_weight*class_term_weight*class_term_density
 
-        scores[word] = score
+        # Add word/score pairs to the list
+        scores[index].append(word)
+        scores[index].append(score)
+
+        # Add frequencies if needed
+        if get_frequencies:
+            scores[index].append(class_term_frequency)
+            scores[index].append(corpus_term_frequency)
 
     return scores
 
 
 def _get_log_normalised_ratio(numerator, denominator):
-    normalised_numerator = math.log(numerator+1)
-    normalised_denominator = 1 + math.log(denominator+1)
+    normalised_numerator = math.log(numerator)
+    normalised_denominator = 1 + math.log(denominator)
     return normalised_numerator/normalised_denominator
 
 
-def get_all_relevant_terms(df, col_text, col_label, label_names, export_to=None):
-    relevant_terms = pd.DataFrame()
+def get_all_relevant_terms(df, col_text, col_label, label_names, get_frequencies=False, export_to=None, encoding="ANSI"):
+    """
+    Get a dataframe showing most relevant terms for a all labels
+
+    Parameters
+    ----------
+    df: pandas dataframe
+        Dataframe to extract the terms from
+    col_text: str
+        Name of the column containing the text
+    col_label: str
+        Name of the column containing the label
+    label_names: list<str>
+        Names of the labels
+    get_frequencies: boolean, optional (default value=False)
+        If set to True, display frequency of the term within the specified category and in other categories in the dataframe.
+    export_to: str, optional (default value=None)
+        Path to the csv file containing the generated dataframe of relevant terms
+    encoding: str, optional (default value="ANSI")
+        Encoding of the csv file (see pandas doc : to_csv())
+
+    Return
+    -------
+    Pandas DataFrame (columns=['word', 'relevance_score'] or ['word', 'relevance_score','class_frequency', 'corpus_frequency'] 
+    if get_frequencies is set to True)
+    """
+    all_relevant_terms = pd.DataFrame()
+
     for label in label_names:
-        relevant_terms[label] = get_relevant_terms(
-            df, col_text, col_label, label)['word']
+        relevant_terms = get_relevant_terms(
+            df, col_text, col_label, label, get_frequencies)
+        all_relevant_terms[label + " (word)"] = relevant_terms['word']
+
+        if get_frequencies:
+            all_relevant_terms[label +
+                               " (class_frequency)"] = relevant_terms['class_frequency']
+            all_relevant_terms[label +
+                               " (corpus_frequency)"] = relevant_terms['corpus_frequency']
 
     if export_to is not None:
-        relevant_terms.to_csv(export_to, sep=";", encoding="utf-8")
+        all_relevant_terms.to_csv(export_to, sep=";", encoding=encoding)
 
-    return relevant_terms
+    return all_relevant_terms
 
 
-def get_relevant_terms(df, col_text, col_label, label, plot=False,
+def get_relevant_terms(df, col_text, col_label, label, get_frequencies=False, plot=False,
                        nb_words_to_plot=10, plot_reversed=True, palette="Blues", title="default"):
     """
     Get a dataframe showing most relevant terms for a specified label
@@ -177,23 +219,32 @@ def get_relevant_terms(df, col_text, col_label, label, plot=False,
         Name of the column containing the label
     label: str
         Name of the label to analyse
+    get_frequencies: boolean, optional (default value=False)
+        If set to True, display frequency of the term within the specified category and in other categories in the dataframe.
     plot: boolean, optional (default value=False)
         Plot most relevant terms with associated scores
 
     Return
     -------
-    Pandas DataFrame (columns=['word', 'relevance_score'])
+    Pandas DataFrame (columns=['word', 'relevance_score'] or ['word', 'relevance_score','class_frequency', 'corpus_frequency'] 
+    if get_frequencies is set to True)
     """
 
     if title == "default":
         title = "Relevance scores for terms in {}".format(label)
 
-    scores = _get_relevance_scores(df, col_text, col_label, label)
-    sorted_scores = sorted(scores.items(),
-                           key=lambda kv: kv[1], reverse=plot_reversed)
+    scores_freqs = _get_relevance_scores(
+        df, col_text, col_label, label, get_frequencies)
+    # Sort by score (kv[1])
+    sorted_scores_freqs = sorted(
+        scores_freqs, key=lambda val: val[1], reverse=True)
+
     df_scores = pd.DataFrame(
-        sorted_scores,
-        columns=['word', 'relevance_score'])
+        sorted_scores_freqs,
+        columns=["word", "relevance_score",
+                 "class_frequency", "corpus_frequency"]
+        if get_frequencies else ["word", "relevance_score"])
+
     if plot:
         sns.barplot(y="word", x="relevance_score",
                     data=df_scores[:nb_words_to_plot], palette=palette).set_title(title)
