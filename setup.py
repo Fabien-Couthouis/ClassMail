@@ -20,5 +20,6 @@ setup(
     license="MIT",
     install_requires=required,
     data_files=[('config', ['classmail/nlp/conf.json'])],
+    include_package_data=True,
     python_requires=">=3.6",
 )
