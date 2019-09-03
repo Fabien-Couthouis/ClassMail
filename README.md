@@ -1,6 +1,6 @@
 # ClassMail
 
-![alt text](classmail_logo.png "Classmail icon") Classmail
+![alt text](https://github.com/Fabien-Couthouis/ClassMail/blob/master/classmail_icon.png "Classmail icon") Classmail
 
 Mail classification Python library optimized for french mails in the field of insurance. Classmail was created to automate mail classification workflow in quick experiments. Developped during my internship at [Covéa](https://www.covea.eu).
 
